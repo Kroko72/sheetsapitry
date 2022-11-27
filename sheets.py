@@ -8,92 +8,65 @@ from googleapiclient.errors import HttpError
 from typing import Union
 
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SAMPLE_SPREADSHEET_ID = '1NPcJBlrHbeRwSnDajfuZtBmbWqcb2aUEdXjpxPEy02A'
+class SheetsApiTry:
+    def __init__(self, spreadsheet_id):
+        self.spreadsheet_id = spreadsheet_id
+        self.scopes = "https://www.googleapis.com/auth/spreadsheets"
 
+        creds = None
 
-def get_cell_value(column_id: Union[str, int], row_id: Union[str, int]) -> list:
-    creds = None
+        # Если вход уже был, то повторная авторизация не нужна
+        if os.path.exists('token.json'):
+            creds = Credentials.from_authorized_user_file('token.json', self.scopes)
 
-    # Если вход уже был, то повторная авторизация не нужна
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        # Если авторизации не было
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', self.scopes)
+                creds = flow.run_local_server(port=0)
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
 
-    # Если авторизации не было
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        self.service = build('sheets', 'v4', credentials=creds)
 
-    try:
-        service = build('sheets', 'v4', credentials=creds)
+    def get_cell(self, column_id: str, row_id: Union[str, int], sheet_name: str) -> list:
+        try:
+            result = self.service.spreadsheets().values().get(spreadsheetId=self.spreadsheet_id,
+                                                              range=f"{sheet_name}!{column_id}{row_id}").execute()
+            values = result.get('values', [])
 
-        sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                    range=f"Sheet1!{column_id}{row_id}").execute()
-        values = result.get('values', [])
+            if not values:
+                return []
 
-        if not values:
-            print('No data found.')
-            return []
+            return values
+        except HttpError as error:
+            print(f"Ошибка: {error}")
 
-        return values
-    except HttpError as err:
-        print(err)
+    def update_cell(self, range_name: str, sheet_name: str, values: list, value_input_option="USER_ENTERED") -> None:
+        try:
+            body = {
+                'values': values
+            }
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id, range=f"{sheet_name}!{range_name}",
+                valueInputOption=value_input_option, body=body).execute()
+            print(f"{result.get('updatedCells')} ячейки обновлено.")
+        except HttpError as error:
+            print(f"Ошибка: {error}")
 
+    def find_rows(self, value: str, sheet_name: str) -> list:
+        rows_with_value = list()
+        try:
+            result = self.service.spreadsheets().values().get(spreadsheetId=self.spreadsheet_id,
+                                                              range=f"{sheet_name}").execute()
+            values = result.get('values', [])
 
-def update_value(range_name: str, value_input_option: str, values: list):
-    # Подразумевается, что авторизация уже была
-    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    try:
+            for row in values:
+                if value in row:
+                    rows_with_value.append(row)
 
-        service = build('sheets', 'v4', credentials=creds)
-        body = {
-            'values': values
-        }
-        result = service.spreadsheets().values().update(
-            spreadsheetId=SAMPLE_SPREADSHEET_ID, range=range_name,
-            valueInputOption=value_input_option, body=body).execute()
-        print(f"{result.get('updatedCells')} cells updated.")
-        return result
-    except HttpError as error:
-        print(f"An error occurred: {error}")
-        return error
-
-
-def find_cells_by_value(value: str) -> list:
-    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    rows_with_value = list()
-    try:
-        service = build('sheets', 'v4', credentials=creds)
-
-        sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                    range=f"Sheet1").execute()
-        values = result.get('values', [])
-
-        for user in values[1:]:
-            if value in user:
-                rows_with_value.append(user)
-
-        if not values:
-            print('No data found.')
-            return []
-
-        return rows_with_value
-    except HttpError as err:
-        print(err)
-
-
-if __name__ == '__main__':
-    print(find_cells_by_value("1АA"))
-    # print(get_cell_value("A", 1))
-    # update_value("1NPcJBlrHbeRwSnDajfuZtBmbWqcb2aUEdXjpxPEy02A",
-    #              "e1", "USER_ENTERED",
-    #              [
-    #                  ['A'],
-    #              ])
+            return rows_with_value
+        except HttpError as error:
+            print(f"Ошибка: {error}")
