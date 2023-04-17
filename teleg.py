@@ -1,5 +1,5 @@
 import os
-import ast
+from ast import literal_eval
 from telegram.ext import CommandHandler
 from sheetsapi.simplesheetsapi.SheetsApi import SheetsApiTry
 import telegram.ext
@@ -29,7 +29,8 @@ def get_cell_value(update, context):
 def update_cell_value(update, context):
     id_range = update.message.text.split()[1]
     sheetname = update.message.text.split()[2]
-    values = ast.literal_eval(update.message.text.split()[-1])
+    # values = ast.literal_eval(update.message.text.split()[-1])
+    values = literal_eval("".join(update.message.text.split()[3:]))
     sheet.update_cell(id_range, sheetname, values)
     update.message.reply_text("Данные изменены")
 
@@ -46,7 +47,7 @@ def find_rows_by(update, context):
 
 def main():
     global sheet
-    sheet = SheetsApiTry("1NPcJBlrHbeRwSnDajfuZtBmbWqcb2aUEdXjpxPEy02A", os.getcwd())
+    sheet = SheetsApiTry("1tA-ZLDPf4vvlY0GR7aTrQV00POBXRUxiVzIyNL0tHKM", os.getcwd())
     updater = telegram.ext.Updater("5933754016:AAEywOG-jAuyOZbN6nqsYsYSMjg-wgLusTo")
     disp = updater.dispatcher
     disp.add_handler(CommandHandler('get_cell_value', get_cell_value))
