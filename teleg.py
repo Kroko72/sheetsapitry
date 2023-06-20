@@ -47,8 +47,8 @@ def find_rows_by(update, context):
 
 def main():
     global sheet
-    sheet = SheetsApiTry("1tA-ZLDPf4vvlY0GR7aTrQV00POBXRUxiVzIyNL0tHKM", os.getcwd())
-    updater = telegram.ext.Updater("5933754016:AAEywOG-jAuyOZbN6nqsYsYSMjg-wgLusTo")
+    sheet = SheetsApiTry("id", os.getcwd())
+    updater = telegram.ext.Updater("token")
     disp = updater.dispatcher
     disp.add_handler(CommandHandler('get_cell_value', get_cell_value))
     disp.add_handler(CommandHandler('start', start))
